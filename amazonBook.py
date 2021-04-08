@@ -1,67 +1,82 @@
+import requests
+from requests import get
+from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
-import re
-import time
-from datetime import datetime
-from urllib.request import urlopen
-from bs4 import BeautifulSoup
-import requests
-no_pages = 2
-def get_data(pageNo):
-    headers = {"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:66.0) Gecko/20100101 Firefox/66.0", "Accept-Encoding":"gzip, deflate", "Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "DNT":"1","Connection":"close", "Upgrade-Insecure-Requests":"1"}
-    r = requests.get('https://www.amazon.in/gp/bestsellers/books/ref=zg_bs_pg_'+str(pageNo)+'?ie=UTF8&pg='+str(pageNo), headers=headers)#, proxies=proxies)
-    content = r.content
-    soup = BeautifulSoup(content)
-    #print(soup)
-    alls = []
-    for d in soup.findAll('div', attrs={'class':'a-section a-spacing-none aok-relative'}):
-        #print(d)
-        name = d.find('span', attrs={'class':'zg-text-center-align'})
-        n = name.find_all('img', alt=True)
-        #print(n[0]['alt'])
-        author = d.find('a', attrs={'class':'a-size-small a-link-child'})
-        rating = d.find('span', attrs={'class':'a-icon-alt'})
-        users_rated = d.find('a', attrs={'class':'a-size-small a-link-normal'})
-        price = d.find('span', attrs={'class':'p13n-sc-price'})
-        all1=[]
-        if name is not None:
-            #print(n[0]['alt'])
-            all1.append(n[0]['alt'])
-        else:
-            all1.append("unknown-product")
+
+url = 'https://www.amazon.in/gp/bestsellers/books/ref=zg_bs_pg_'
+headers = {"Accept-Language": "en-US, en;q=1"}
+results = requests.get(url, headers=headers)
+
+soup = BeautifulSoup(results.text, "html.parser")
+
+# initiate data storage
+names = []
+authors = []
+ratings = []
+user_rated = []
+prices = []
+book_div = soup.find_all('div', class_='a-section a-spacing-none aok-relative')
+
+# our loop through each container
+for container in book_div:
+
+    # name
+    name = container.find('span', attrs={'class': 'zg-text-center-align'})
+
+    n = name.find_all('img', alt=True)
+
+    # print(n[0]['alt'])
+    author = container.find('a', attrs={'class': 'a-size-small a-link-child'})
+
+    rating = container.find('span', attrs={'class': 'a-icon-alt'})
+
+    users_rated = container.find('a', attrs={'class': 'a-size-small a-link-normal'})
+
+    price = container.find('span', attrs={'class': 'p13n-sc-price'})
+
+    if name is not None:
+
+        names.append(n[0]['alt'])
+    else:
+        names.append("unknown-product")
+
+    if author is not None:
+
+        authors.append(author.text)
+    elif author is None:
+        author = container.find('span', attrs={'class': 'a-size-small a-color-base'})
         if author is not None:
-            #print(author.text)
-            all1.append(author.text)
-        elif author is None:
-            author = d.find('span', attrs={'class':'a-size-small a-color-base'})
-            if author is not None:
-                all1.append(author.text)
-            else:
-                all1.append('0')
-        if rating is not None:
-            #print(rating.text)
-            all1.append(rating.text)
+            authors.append(author.text)
         else:
-            all1.append('-1')
-        if users_rated is not None:
-            #print(price.text)
-            all1.append(users_rated.text)
-        else:
-            all1.append('0')
-        if price is not None:
-            #print(price.text)
-            all1.append(price.text)
-        else:
-            all1.append('0')
-        alls.append(all1)
-    return alls
-results = []
-for i in range(1, no_pages+1):
-    results.append(get_data(i))
-flatten = lambda l: [item for sublist in l for item in sublist]
-df = pd.DataFrame(flatten(results),columns=['Book Name','Author','Rating','Customers_Rated', 'Price'])
-df.to_csv('amazon_product.csv', index=False, encoding='utf-8')
-df = pd.read_csv("amazon_product.csv")
-df.shape
-(100, 5)
-df.head(61)
+            authors.append('0')
+
+    if rating is not None:
+
+        ratings.append(rating.text)
+    else:
+        ratings.append('-1')
+
+    if users_rated is not None:
+
+        user_rated.append(users_rated.text)
+    else:
+        user_rated.append('0')
+
+    if price is not None:
+
+        prices.append(price.text)
+    else:
+        prices.append('0')
+
+# pandas dataframe
+books = pd.DataFrame({
+    'BookName': names,
+    'AuthorName': authors,
+    'BookRating': ratings,
+    'UserRating': user_rated,
+    'BookPrice': prices,
+
+})
+
+books.to_csv('amaz_products.csv')
